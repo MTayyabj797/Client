@@ -1,6 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig } from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api/v1';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://server-production-abf3.up.railway.app';
 
 const ACCESS_TOKEN_KEY = 'shopms_access_token';
 const REFRESH_TOKEN_KEY = 'shopms_refresh_token';
