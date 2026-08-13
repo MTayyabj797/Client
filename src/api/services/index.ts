@@ -147,6 +147,7 @@ export interface CashEntry {
 export interface BankAccount {
   id: string;
   bank_name: string;
+  title: string;
   account_number: string;
   current_balance: number;
   status: 'active' | 'inactive';
