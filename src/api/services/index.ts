@@ -1,296 +1,583 @@
-import axiosInstance, { type ApiSuccessResponse } from '../axios';
+import { useState } from 'react';
+import { Box, Button, Card, CardContent, Grid, Stack, Typography, Chip } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+  Landmark,
+  Eye,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  ArrowLeftRight,
+  FileText,
+  PlusCircle,
+  Trash2,
+} from 'lucide-react';
 
-const list = async <T>(path: string, params?: Record<string, unknown>) => {
-  const { data } = await axiosInstance.get<ApiSuccessResponse<T[]>>(path, { params });
-  return data;
-};
+import PageHeader from '@/components/PageHeader';
+import FormDialog from '@/components/FormDialog';
+import { CardGridSkeleton } from '@/components/LoadingSkeleton';
+import ErrorState from '@/components/ErrorState';
+import {
+  useBankAccounts,
+  useCreateBankAccount,
+  useTransfer,
+  useDeleteBankAccount,
+  useUpdateBankAccountStatus,
+  type BankAccount,
+} from '@/hooks/useCashBank';
+import { formatCurrency } from '@/utils/format';
 
-const get = async <T>(path: string) => {
-  const { data } = await axiosInstance.get<ApiSuccessResponse<T>>(path);
-  return data.data;
-};
+export default function BankAccounts() {
+  const navigate = useNavigate();
 
-const create = async <T>(path: string, body: unknown) => {
-  const { data } = await axiosInstance.post<ApiSuccessResponse<T>>(path, body);
-  return data.data;
-};
+  const {
+    data: result,
+    isLoading,
+    isError,
+    refetch,
+  } = useBankAccounts();
 
-const update = async <T>(path: string, body: unknown) => {
-  const { data } = await axiosInstance.put<ApiSuccessResponse<T>>(path, body);
-  return data.data;
-};
+  const transferMut = useTransfer();
+  const createBankMut = useCreateBankAccount();
+  const deleteBankMut = useDeleteBankAccount();
+  const statusMut = useUpdateBankAccountStatus();
 
-const remove = async (path: string) => {
-  const { data } = await axiosInstance.delete<ApiSuccessResponse<unknown>>(path);
-  return data.data;
-};
+  const [action, setAction] = useState<{
+    type: 'Deposit' | 'Withdraw' | 'Transfer';
+    bank: BankAccount;
+  } | null>(null);
 
-const patch = async <T>(path: string, body: unknown) => {
-  const { data } = await axiosInstance.patch<ApiSuccessResponse<T>>(path, body);
-  return data.data;
-};
+  const [addOpen, setAddOpen] = useState(false);
 
-// ===== Types =====
-export interface Customer {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  opening_balance: number;
-  current_balance: number;
-  status: 'active' | 'inactive';
-}
+  const accounts: BankAccount[] = result?.data ?? [];
 
-export interface LedgerEntry {
-  id: string;
-  customer_id?: string;
-  supplier_id?: string;
-  date: string;
-  description: string;
-  debit: number;
-  credit: number;
-  balance: number;
-  payment_method: string;
-  ref_type?: string;
-  ref_id?: string;
-}
+  const handleExport = () => {
+    import('@/components/PDFButton').then(({ exportTableToPDF }) => {
+      // exportTableToPDF(
+      //   'Bank Accounts',
+      //   ['Bank', 'Account Number', 'Current Balance', 'Status'],
+      //   accounts.map((account) => [
+      //     account.bank_name,
+      //     account.account_number,
+      //     formatCurrency(account.current_balance),
+      //     account.status,
+      //   ])
 
-export interface Supplier {
-  id: string;
-  name: string;
-  phone: string;
-  address: string;
-  opening_balance: number;
-  current_balance: number;
-  status: 'active' | 'inactive';
-}
-
-export interface Category {
-  id: string;
-  name: string;
-  description?: string;
-}
-
-export interface Product {
-  id: string;
-  name: string;
-  category_id?: { id: string; name: string; description?: string } | string;
-  sku: string;
-  purchase_price: number;
-  sale_price: number;
-  stock_quantity: number;
-  low_stock_threshold: number;
-  status: 'active' | 'inactive';
-}
-
-export interface SaleItem {
-  id: string;
-  product_id: { id: string; name: string; sku: string };
-  quantity: number;
-  unit_price: number;
-  total_price: number;
-}
-
-export interface Sale {
-  id: string;
-  invoice_no: string;
-  customer_id: { id: string; name: string; phone: string; address?: string };
-  total_amount: number;
-  paid_amount: number;
-  remaining_amount: number;
-  payment_method: 'cash' | 'bank' | 'credit' | 'mixed';
-  bank_account_id?: { id: string; bank_name: string; account_number: string };
-  status: 'paid' | 'partial' | 'unpaid' | 'cancelled';
-  date: string;
-  items?: SaleItem[];
-}
-
-export interface Purchase {
-  id: string;
-  invoice_no: string;
-  supplier_id: { id: string; name: string; phone: string; address?: string };
-  total_amount: number;
-  paid_amount: number;
-  remaining_amount: number;
-  payment_method: 'cash' | 'bank' ;
-  bank_account_id?: { id: string; bank_name: string; account_number: string };
-  status: 'paid' | 'unpaid' ;
-  date: string;
-  items?: SaleItem[];
-}
-
-export interface ExpenseCategory {
-  id: string;
-  name: string;
-}
-
-export interface Expense {
-  id: string;
-  category_id: { id: string; name: string };
-  description: string;
-  amount: number;
-  payment_method: 'cash' | 'bank';
-  bank_account_id?: { id: string; bank_name: string; account_number: string };
-  date: string;
-}
-
-export interface CashEntry {
-  id: string;
-  date: string;
-  description: string;
-  cash_in: number;
-  cash_out: number;
-  running_balance: number;
-  ref_type?: string;
-}
-
-export interface BankAccount {
-  id: string;
-  bank_name: string;
-  title: string;
-  account_number: string;
-  current_balance: number;
-  status: 'active' | 'inactive';
-}
-
-export interface BankTransaction {
-  id: string;
-  bank_account_id: string;
-  date: string;
-  description: string;
-  deposit: number;
-  withdrawal: number;
-  running_balance: number;
-  ref_type?: string;
-}
-
-export interface DailyEntry {
-  id: string;
-  date: string;
-  description: string;
-  ref_type?: string;
-  ref_id?: string;
-  debit: number;
-  credit: number;
-  running_balance: number;
-}
-
-export interface DashboardSummary {
-  todays_sales: number;
-  todays_expenses: number;
-  cash_in_hand: number;
-  bank_balances: BankAccount[];
-  total_bank_balance: number;
-  total_receivables: number;
-  total_payables: number;
-  recent_transactions: DailyEntry[];
-}
-
-export interface DashboardCharts {
-  monthly_sales: { month: string; sales: number }[];
-  monthly_expenses: { month: string; expenses: number }[];
-  cash_flow: { month: string; cash_in: number; cash_out: number; net: number }[];
-}
-
-export interface ShopSettings {
-  id: string;
-  shop_name: string;
-  logo_url: string;
-  phone: string;
-  address: string;
-  currency: string;
-  language: string;
-}
-
-// ===== Services =====
-export const customerService = {
-  list: (params?: Record<string, unknown>) => list<Customer>('/customers', params),
-  get: (id: string) => get<Customer>(`/customers/${id}`),
-  create: (body: unknown) => create<Customer>('/customers', body),
-  update: (id: string, body: unknown) => update<Customer>(`/customers/${id}`, body),
-  remove: (id: string) => remove(`/customers/${id}`),
-  ledger: (id: string, params?: Record<string, unknown>) => list<LedgerEntry>(`/customers/${id}/ledger`, params),
-  addLedgerEntry: (id: string, body: unknown) => create<LedgerEntry>(`/customers/${id}/ledger`, body),
-};
-
-export const supplierService = {
-  list: (params?: Record<string, unknown>) => list<Supplier>('/suppliers', params),
-  get: (id: string) => get<Supplier>(`/suppliers/${id}`),
-  create: (body: unknown) => create<Supplier>('/suppliers', body),
-  update: (id: string, body: unknown) => update<Supplier>(`/suppliers/${id}`, body),
-  remove: (id: string) => remove(`/suppliers/${id}`),
-  ledger: (id: string, params?: Record<string, unknown>) => list<LedgerEntry>(`/suppliers/${id}/ledger`, params),
-  addLedgerEntry: (id: string, body: unknown) => create<LedgerEntry>(`/suppliers/${id}/ledger`, body),
-};
-
-export const productService = {
-  list: (params?: Record<string, unknown>) => list<Product>('/products', params),
-  get: (id: string) => get<Product>(`/products/${id}`),
-  create: (body: unknown) => create<Product>('/products', body),
-  update: (id: string, body: unknown) => update<Product>(`/products/${id}`, body),
-  remove: (id: string) => remove(`/products/${id}`),
-  adjustStock: (id: string, body: unknown) => patch<Product>(`/products/${id}/adjust-stock`, body),
-  categories: () => list<Category>('/products/categories'),
-  createCategory: (body: unknown) => create<Category>('/products/categories', body),
-};
-
-export const saleService = {
-  list: (params?: Record<string, unknown>) => list<Sale>('/sales', params),
-  get: (id: string) => get<Sale>(`/sales/${id}`),
-  create: (body: unknown) => create<Sale>('/sales', body),
-};
-
-export const purchaseService = {
-  list: (params?: Record<string, unknown>) => list<Purchase>('/purchases', params),
-  get: (id: string) => get<Purchase>(`/purchases/${id}`),
-  create: (body: unknown) => create<Purchase>('/purchases', body),
-  delete: (id: string) => remove(`/purchases/${id}`),
-};
-
-export const expenseService = {
-  list: (params?: Record<string, unknown>) => list<Expense>('/expenses', params),
-  create: (body: unknown) => create<Expense>('/expenses', body),
-  categories: () => list<ExpenseCategory>('/expenses/categories'),
-  createCategory: (body: unknown) => create<ExpenseCategory>('/expenses/categories', body),
-  delete: (id: string) => remove(`/expenses/${id}`),
-};
-
-export const cashBankService = {
-  listCashBook: (params?: Record<string, unknown>) => list<CashEntry>('/cash-book', params),
-  createCashEntry: (body: unknown) => create<CashEntry>('/cash-book', body),
-  listBankAccounts: () => list<BankAccount>('/bank-accounts'),
-  createBankAccount: (body: unknown) => create<BankAccount>('/bank-accounts', body),
-  deleteBankAccount: (id: string) =>remove(`/bank-accounts/${id}`),
-  updateBankAccountStatus: (id: string, status: 'active' | 'inactive') => patch<BankAccount>(  `/bank-accounts/${id}/status`,  { status }),
-  transfer: (body: unknown) => create<unknown>('/bank-accounts/transfer', body),
-  bankLedger: (id: string, params?: Record<string, unknown>) => list<BankTransaction>(`/bank-accounts/${id}/ledger`, params),
-};
-
-export const dailyBookService = {
-  list: (params?: Record<string, unknown>) => list<DailyEntry>('/daily-book', params),
-};
-
-export const dashboardService = {
-  summary: () => get<DashboardSummary>('/dashboard/summary'),
-  charts: () => get<DashboardCharts>('/dashboard/charts'),
-};
-
-export const reportService = {
-  sales: (params?: Record<string, unknown>) => list<unknown>('/reports/sales', params),
-  expenses: (params?: Record<string, unknown>) => list<unknown>('/reports/expenses', params),
-  customerSummary: (params?: Record<string, unknown>) => list<unknown>('/reports/customer-summary', params),
-  supplierSummary: (params?: Record<string, unknown>) => list<unknown>('/reports/supplier-summary', params),
-  cashFlow: (params?: Record<string, unknown>) => list<unknown>('/reports/cash-flow', params),
-  downloadPdf: async (endpoint: string, params?: Record<string, unknown>) => {
-    const response = await axiosInstance.get(`/reports/${endpoint}`, {
-      params: { ...params, format: 'pdf' },
-      responseType: 'blob',
+      exportTableToPDF(
+        'Bank Accounts',
+        ['Account Name', 'Bank', 'Account Number', 'Current Balance', 'Status'],
+        accounts.map((account) => [
+          account.title,
+          account.bank_name,
+          account.account_number,
+          formatCurrency(account.current_balance),
+          account.status,
+        ])
+            );
     });
-    return response.data as Blob;
-  },
-};
+  };
 
-export const settingsService = {
-  get: () => get<ShopSettings>('/settings'),
-  update: (body: unknown) => update<ShopSettings>('/settings', body),
-};
+  const handleAction = (vals: Record<string, string | number>) => {
+    if (!action) return;
+
+    if (action.type === 'Transfer') {
+      transferMut.mutate(
+        {
+          from_type: 'bank',
+          to_type: 'bank',
+          from_bank_account_id: action.bank.id,
+          title: String(vals.title),
+          to_bank_account_id: String(vals.toAccount),
+          amount: Number(vals.amount),
+          description: String(vals.description),
+        },
+        {
+          onSuccess: () => setAction(null),
+        }
+      );
+    } else {
+      transferMut.mutate(
+        {
+          from_type: action.type === 'Withdraw' ? 'bank' : 'cash',
+          to_type: action.type === 'Withdraw' ? 'cash' : 'bank',
+          from_bank_account_id:
+            action.type === 'Withdraw' ? action.bank.id : undefined,
+          to_bank_account_id:
+            action.type === 'Deposit' ? action.bank.id : undefined,
+          amount: Number(vals.amount),
+          description: String(vals.description),
+        },
+        {
+          onSuccess: () => setAction(null),
+        }
+      );
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <Box>
+        <PageHeader
+          title="Bank Accounts"
+          subtitle="View balances and manage bank transactions"
+          breadcrumbs={[{ label: 'Bank Accounts' }]}
+          action={
+            <Button
+              variant="contained"
+              startIcon={<FileText size={18} />}
+              onClick={handleExport}
+              sx={{ borderRadius: 2 }}
+            >
+              Export PDF
+            </Button>
+          }
+        />
+
+        <CardGridSkeleton count={3} />
+      </Box>
+    );
+  }
+
+  if (isError) {
+    return (
+      <Box>
+        <PageHeader
+          title="Bank Accounts"
+          subtitle="View balances and manage bank transactions"
+          breadcrumbs={[{ label: 'Bank Accounts' }]}
+        />
+
+        <ErrorState
+          message="Failed to load bank accounts"
+          onRetry={() => refetch()}
+        />
+      </Box>
+    );
+  }
+
+  return (
+    <Box>
+      <PageHeader
+        title="Bank Accounts"
+        subtitle="View balances and manage bank transactions"
+        breadcrumbs={[{ label: 'Bank Accounts' }]}
+        action={
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="outlined"
+              startIcon={<FileText size={18} />}
+              onClick={handleExport}
+              sx={{ borderRadius: 2 }}
+            >
+              Export PDF
+            </Button>
+
+            <Button
+              variant="contained"
+              startIcon={<PlusCircle size={18} />}
+              onClick={() => setAddOpen(true)}
+              sx={{ borderRadius: 2 }}
+            >
+              Add Bank Account
+            </Button>
+          </Stack>
+        }
+      />
+
+      <Grid container spacing={2.5}>
+        {accounts.map((acc, i) => (
+          <Grid item xs={12} md={6} lg={4} key={acc.id}>
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{
+                duration: 0.4,
+                delay: i * 0.06,
+              }}
+            >
+              {/* <Card
+                sx={{
+                  height: '100%',
+                  position: 'relative',
+                  overflow: 'hidden',
+                }}
+              > */}
+              <Card
+                sx={{
+                  height: '100%',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  opacity: acc.status === 'inactive' ? 0.65 : 1,
+                  border:
+                    acc.status === 'inactive'
+                      ? '1px solid'
+                      : undefined,
+                  borderColor:
+                    acc.status === 'inactive'
+                      ? 'divider'
+                      : undefined,
+                }}
+              >
+                <Box
+                  // sx={{
+                  //   position: 'absolute',
+                  //   top: -30,
+                  //   right: -30,
+                  //   width: 120,
+                  //   height: 120,
+                  //   borderRadius: '50%',
+                  //   bgcolor: 'rgba(37,99,235,0.06)',
+                  // }}
+                    sx={{
+                      bgcolor:
+                        acc.status === 'inactive'
+                          ? 'action.disabledBackground'
+                          : 'primary.main',
+                      // color:
+                      //   acc.status === 'inactive'
+                      //     ? 'text.disabled'
+                      //     : 'primary.contrastText',
+                      // borderRadius: 2,
+                      p: 0.25,
+                      display: 'flex',
+                    }}
+                />
+
+                <CardContent
+                  sx={{
+                    p: 3,
+                    position: 'relative',
+                  }}
+                >
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="flex-start"
+                    sx={{ mb: 2.5 }}
+                  >
+                    <Stack
+                      direction="row"
+                      spacing={1.5}
+                      alignItems="center"
+                    >
+                      <Box
+                        sx={{
+                          bgcolor: 'primary.main',
+                          color: 'primary.contrastText',
+                          borderRadius: 2,
+                          p: 1.25,
+                          display: 'flex',
+                        }}
+                      >
+                        <Landmark size={22} />
+                      </Box>
+
+                      <Box>
+                        {/* <Typography
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 17,
+                          }}
+                        >
+                          {acc.bank_name}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontFamily: 'monospace' }}
+                        >
+                          {acc.account_number}
+                        </Typography> */}
+
+                        <Typography
+                          sx={{
+                            fontWeight: 700,
+                            fontSize: 17,
+                          }}
+                        >
+                          {acc.title}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                        >
+                          {acc.bank_name}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ fontFamily: 'monospace' }}
+                        >
+                          {acc.account_number}
+                        </Typography>
+                      </Box>
+                    </Stack>
+
+                    {/* <Chip
+                      label={acc.status}
+                      size="small"
+                      color={
+                        acc.status === 'active' ? 'success' : 'default'
+                      }
+                      variant="outlined"
+                    /> */}
+                    <Chip
+                      label={acc.status === 'active' ? 'Active' : 'Inactive'}
+                      size="small"
+                      color={acc.status === 'active' ? 'success' : 'error'}
+                      variant="outlined"
+                      sx={{
+                        fontWeight: 600,
+                        ...(acc.status === 'inactive' && {
+                          bgcolor: 'error.50',
+                          borderColor: 'error.main',
+                        }),
+                      }}
+                    />
+                  </Stack>
+
+                  <Box
+                    sx={{
+                      py: 1.5,
+                      mb: 2,
+                      bgcolor: 'action.hover',
+                      borderRadius: 2,
+                      px: 2,
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                    >
+                      Current Balance
+                    </Typography>
+
+                    {/* <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        color: 'primary.main',
+                      }}
+                    > */}
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 800,
+                        color:
+                          acc.status === 'inactive'
+                            ? 'text.secondary'
+                            : 'primary.main',
+                      }}
+                    >
+                      {formatCurrency(acc.current_balance)}
+                    </Typography>
+                  </Box>
+
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    flexWrap="wrap"
+                    useFlexGap
+                  >
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<Eye size={16} />}
+                      onClick={() =>
+                        navigate(`/bank-accounts/${acc.id}`)
+                      }
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Ledger
+                    </Button>
+
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      startIcon={<ArrowDownToLine size={16} />}
+                      onClick={() =>
+                        setAction({
+                          type: 'Deposit',
+                          bank: acc,
+                        })
+                      }
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Deposit
+                    </Button>
+
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<ArrowUpFromLine size={16} />}
+                      onClick={() =>
+                        setAction({
+                          type: 'Withdraw',
+                          bank: acc,
+                        })
+                      }
+                      sx={{ borderRadius: 2 }}
+                    >
+                      Withdraw
+                    </Button>
+
+                    {/* DELETE BUTTON IF NEEDED LATER (ALL THE WORKING IS DONE) */}
+                    
+                    {/* <Button
+                      size="small"
+                      variant="outlined"
+                      color="error"
+                      startIcon={<Trash2 size={16} />}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Are you sure you want to delete ${acc.bank_name}?`
+                          )
+                        ) {
+                          deleteBankMut.mutate(acc.id);
+                        }
+                      }}
+                      disabled={deleteBankMut.isPending}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {deleteBankMut.isPending ? 'Deleting...' : 'Delete'}
+                    </Button> */}
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color={acc.status === 'active' ? 'error' : 'success'}
+                      onClick={() => {
+                        const newStatus =
+                          acc.status === 'active' ? 'inactive' : 'active';
+
+                        statusMut.mutate({
+                          id: acc.id,
+                          status: newStatus,
+                        });
+                      }}
+                      disabled={statusMut.isPending}
+                      sx={{ borderRadius: 2 }}
+                    >
+                      {acc.status === 'active' ? 'Deactivate' : 'Activate'}
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </Grid>
+        ))}
+      </Grid>
+
+      {/* Deposit / Withdraw / Transfer */}
+      <FormDialog
+        open={!!action}
+        title={`${action?.type} - ${action?.bank.bank_name}`}
+        fields={[
+          {
+            name: 'amount',
+            label: 'Amount',
+            type: 'number',
+            required: true,
+          },
+
+          {
+            name: 'description',
+            label: 'Description',
+            required: true,
+          },
+
+          ...(action?.type === 'Transfer'
+            ? [
+                {
+                  name: 'toAccount',
+                  label: 'To Account',
+                  type: 'select' as const,
+                  options: accounts
+                    .filter((a) => a.id !== action.bank.id)
+                    .map((a) => ({
+                      value: a.id,
+                      label: `${a.bank_name} — ${a.account_number}`,
+                    })),
+                  required: true,
+                },
+              ]
+            : []),
+        ]}
+        onClose={() => setAction(null)}
+        onSubmit={handleAction}
+      />
+
+      {/* Add Bank Account */}
+      <FormDialog
+        open={addOpen}
+        title="Add Bank Account"
+        // fields={[
+        //   {
+        //     name: 'bank_name',
+        //     label: 'Bank Name',
+        //     required: true,
+        //   },
+
+        //   {
+        //     name: 'account_number',
+        //     label: 'Account Number',
+        //     required: true,
+        //   },
+
+        //   {
+        //     name: 'current_balance',
+        //     label: 'Current Balance',
+        //     type: 'number',
+        //     required: true,
+        //     defaultValue: 0,
+        //   },
+          fields={[
+            {
+              name: 'title',
+              label: 'Account Name',
+              required: true,
+            },
+            {
+              name: 'bank_name',
+              label: 'Bank Name',
+              required: true,
+            },
+            {
+              name: 'account_number',
+              label: 'Account Number',
+              required: true,
+            },
+            {
+              name: 'current_balance',
+              label: 'Current Balance',
+              type: 'number',
+              required: true,
+              defaultValue: 0,
+            },
+          // ]}
+
+        ]}
+        onClose={() => setAddOpen(false)}
+        onSubmit={(vals) => {
+          createBankMut.mutate(
+            {
+              title: String(vals.title),
+              bank_name: String(vals.bank_name),
+              account_number: String(vals.account_number),
+              current_balance: Number(vals.current_balance),
+            },
+            {
+              onSuccess: () => setAddOpen(false),
+            }
+          );
+        }}
+      />
+    </Box>
+  );
+}
+
