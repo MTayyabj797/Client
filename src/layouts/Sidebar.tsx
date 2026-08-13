@@ -68,7 +68,7 @@ function BrandHeader({ collapsed }: { collapsed: boolean }) {
           <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -8 }}>
             <Box>
               <Typography sx={{ fontWeight: 700, fontSize: 15, lineHeight: 1.1 }}>Shop Manager</Typography>
-              <Typography variant="caption" color="text.secondary">Javed Nawaz and brothers</Typography>
+              <Typography variant="caption" color="text.secondary">Javed Zaffar and brothers</Typography>
             </Box>
           </motion.div>
         )}
