@@ -34,6 +34,37 @@ export const useCreateCustomer = () => {
   });
 };
 
+export const useUpdateCustomerLedgerEntry = (customerId: string) => {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entryId,
+      body,
+    }: {
+      entryId: string;
+      body: unknown;
+    }) => customerService.updateLedgerEntry(customerId, entryId, body),
+
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: [KEY, customerId, 'ledger'],
+      });
+
+      qc.invalidateQueries({
+        queryKey: [KEY, customerId],
+      });
+
+      toast.success('Ledger entry updated successfully');
+    },
+
+    onError: (e) =>
+      toast.error(
+        getErrorMessage(e, 'Failed to update ledger entry')
+      ),
+  });
+};
+
 export const useUpdateCustomer = () => {
   const qc = useQueryClient();
   return useMutation({
