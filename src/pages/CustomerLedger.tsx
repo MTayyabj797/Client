@@ -296,7 +296,24 @@ const handleEdit = (vals: Record<string, string | number>) => {
             ],
             defaultValue: editingEntry?.payment_method ?? 'cash',
           },
-          {
+          // {
+          //   name: 'bank_account_id',
+          //   label: 'Bank Account',
+          //   type: 'select',
+          //   options: banks.map((bank) => ({
+          //     value: bank.id,
+          //     label: `${bank.bank_name} — ${bank.account_number}`,
+          //   })),
+            // defaultValue: editingEntry?.bank_account_id ?? '',
+            // visibleWhen: {
+            //   field: 'method',
+            //   equals: ['bank'],
+            // },
+          //          defaultValue: typeof editingEntry?.bank_account_id === 'object'
+          //         ? editingEntry.bank_account_id?.id ?? ''
+          //         : editingEntry?.bank_account_id ?? '',
+          // },
+                    {
             name: 'bank_account_id',
             label: 'Bank Account',
             type: 'select',
@@ -304,15 +321,14 @@ const handleEdit = (vals: Record<string, string | number>) => {
               value: bank.id,
               label: `${bank.bank_name} — ${bank.account_number}`,
             })),
-            // defaultValue: editingEntry?.bank_account_id ?? '',
-            // visibleWhen: {
-            //   field: 'method',
-            //   equals: ['bank'],
-            // },
-                   defaultValue: typeof editingEntry?.bank_account_id === 'object'
-                  ? editingEntry.bank_account_id?.id ?? ''
-                  : editingEntry?.bank_account_id ?? '',
-          },
+            defaultValue: typeof editingEntry?.bank_account_id === 'object'
+              ? editingEntry.bank_account_id?.id ?? ''
+              : editingEntry?.bank_account_id ?? '',
+            visibleWhen: {
+              field: 'method',
+              equals: ['bank'],
+            },
+          }
         ]}
         onClose={() => {
           setFormOpen(false);
