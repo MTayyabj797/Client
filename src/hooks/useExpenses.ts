@@ -27,6 +27,34 @@ export const useCreateExpenseCategory = () => {
   });
 };
 
+export const useUpdateExpense = () => {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: unknown;
+    }) => expenseService.update(id, body),
+
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['expenses'] });
+      qc.invalidateQueries({ queryKey: ['cash-book'] });
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      qc.invalidateQueries({ queryKey: ['daily-book'] });
+
+      toast.success('Expense updated successfully');
+    },
+
+    onError: (e) =>
+      toast.error(
+        getErrorMessage(e, 'Failed to update expense')
+      ),
+  });
+};
+
 export const useDeleteExpense = () => {
   const qc = useQueryClient();
 
