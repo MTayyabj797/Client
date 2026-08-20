@@ -8,7 +8,7 @@ import LedgerSummary from '@/components/LedgerSummary';
 import FormDialog from '@/components/FormDialog';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import ErrorState from '@/components/ErrorState';
-import { useBankAccounts, useBankLedger, useTransfer, type BankTransaction } from '@/hooks/useCashBank';
+import { useBankAccounts, useBankLedger,  useUpdateBankTransaction, useTransfer, type BankTransaction } from '@/hooks/useCashBank';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { exportTableToPDF, printDocument } from '@/components/PDFButton';
 
@@ -29,6 +29,11 @@ export default function BankLedger() {
   const current = account?.current_balance ?? entries[entries.length - 1]?.running_balance ?? 0;
   const totalDeposit = entries.reduce((s, e) => s + e.deposit, 0);
   const totalWithdrawal = entries.reduce((s, e) => s + e.withdrawal, 0);
+
+  const updateTransactionMut = useUpdateBankTransaction();
+
+  const [editingTransaction, setEditingTransaction] =
+    useState<BankTransaction | null>(null);
 
   const handleAction = (vals: Record<string, string | number>) => {
     const amount = Number(vals.amount);
@@ -91,7 +96,15 @@ export default function BankLedger() {
         <Box sx={{ textAlign: 'center', py: 8 }}><Typography color="text.secondary">No transactions found for this account.</Typography></Box>
       ) : (
         <>
-          <DataTable columns={columns} rows={entries} rowKey={(r) => r.id} />
+          {/* <DataTable columns={columns} rows={entries} rowKey={(r) => r.id} /> */}
+          <DataTable
+            columns={columns}
+            rows={entries}
+            rowKey={(r) => r.id}
+            onEdit={(transaction) => {
+              setEditingTransaction(transaction);
+            }}
+          />
           <TablePagination count={meta?.total ?? entries.length} page={page - 1} rowsPerPage={rowsPerPage} onPageChange={(p) => setPage(p + 1)} />
         </>
       )}
@@ -101,6 +114,66 @@ export default function BankLedger() {
         { name: 'description', label: 'Description', required: true },
         ...(dialog === 'Transfer' ? [{ name: 'toAccount', label: 'To Account', type: 'select' as const, options: (accountsData?.data ?? []).filter((a) => a.id !== id).map((a) => a.id), required: true }] : []),
       ]} onClose={() => setDialog(null)} onSubmit={handleAction} />
+      <FormDialog
+        open={!!editingTransaction}
+        title="Edit Bank Transaction"
+        fields={[
+          {
+            name: 'date',
+            label: 'Date',
+            type: 'date',
+            required: true,
+            defaultValue: editingTransaction
+              ? new Date(editingTransaction.date)
+                  .toISOString()
+                  .slice(0, 10)
+              : '',
+          },
+          {
+            name: 'description',
+            label: 'Description',
+            required: true,
+            defaultValue:
+              editingTransaction?.description ?? '',
+          },
+          {
+            name: 'deposit',
+            label: 'Deposit',
+            type: 'number',
+            defaultValue:
+              editingTransaction?.deposit ?? 0,
+          },
+          {
+            name: 'withdrawal',
+            label: 'Withdrawal',
+            type: 'number',
+            defaultValue:
+              editingTransaction?.withdrawal ?? 0,
+          },
+        ]}
+        onClose={() => setEditingTransaction(null)}
+        onSubmit={(vals) => {
+          if (!editingTransaction || !id) return;
+
+          updateTransactionMut.mutate(
+            {
+              accountId: id,
+              transactionId: editingTransaction.id,
+              body: {
+                date: vals.date,
+                description: String(vals.description),
+                deposit: Number(vals.deposit),
+                withdrawal: Number(vals.withdrawal),
+              },
+            },
+            {
+              onSuccess: () => {
+                setEditingTransaction(null);
+              },
+            }
+          );
+        }}
+      />
     </Box>
   );
 }
