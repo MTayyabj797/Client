@@ -15,6 +15,7 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { Plus, Trash2 } from 'lucide-react';
+import type { Sale } from '@/api/services';
 
 export interface SaleCustomerOption {
   value: string;
@@ -39,12 +40,32 @@ export interface SaleFormItem {
   unit_price: number;
 }
 
+// interface SaleFormDialogProps {
+//   open: boolean;
+//   customers: SaleCustomerOption[];
+//   products: SaleProductOption[];
+//   banks: SaleBankOption[];
+//   onClose: () => void;
+//   onSubmit: (data: {
+//     customer_id: string;
+//     payment_method: 'cash' | 'bank' | 'credit' | 'mixed';
+//     paid_amount: number;
+//     bank_account_id?: string;
+//     items: SaleFormItem[];
+//   }) => void;
+//   loading?: boolean;
+// }
+
 interface SaleFormDialogProps {
   open: boolean;
   customers: SaleCustomerOption[];
   products: SaleProductOption[];
   banks: SaleBankOption[];
+
+  initialSale?: Sale | null;
+
   onClose: () => void;
+
   onSubmit: (data: {
     customer_id: string;
     payment_method: 'cash' | 'bank' | 'credit' | 'mixed';
@@ -52,9 +73,9 @@ interface SaleFormDialogProps {
     bank_account_id?: string;
     items: SaleFormItem[];
   }) => void;
+
   loading?: boolean;
 }
-
 const paymentMethods = ['cash', 'bank', 'credit', 'mixed'] as const;
 
 type PaymentMethod = (typeof paymentMethods)[number];
@@ -70,6 +91,7 @@ export default function SaleFormDialog({
   customers,
   products,
   banks,
+  initialSale,
   onClose,
   onSubmit,
   loading = false,
@@ -81,15 +103,59 @@ export default function SaleFormDialog({
   const [bankAccountId, setBankAccountId] = useState('');
   const [items, setItems] = useState<SaleFormItem[]>([emptyItem()]);
 
-  useEffect(() => {
-    if (!open) return;
+  // useEffect(() => {
+  //   if (!open) return;
 
+  //   setCustomerId('');
+  //   setPaymentMethod('cash');
+  //   setPaidAmount(0);
+  //   setBankAccountId('');
+  //   setItems([emptyItem()]);
+  // }, [open]);
+  useEffect(() => {
+  if (!open) return;
+
+  if (initialSale) {
+    setCustomerId(
+      typeof initialSale.customer_id === 'string'
+        ? initialSale.customer_id
+        : initialSale.customer_id?.id ?? ''
+    );
+
+    setPaymentMethod(
+      initialSale.payment_method ?? 'cash'
+    );
+
+    setPaidAmount(
+      Number(initialSale.paid_amount ?? 0)
+    );
+
+    setBankAccountId(
+      typeof initialSale.bank_account_id === 'string'
+        ? initialSale.bank_account_id
+        : initialSale.bank_account_id?.id ?? ''
+    );
+
+    setItems(
+      (initialSale.items ?? []).map((item) => ({
+        product_id:
+          typeof item.product_id === 'string'
+            ? item.product_id
+            : item.product_id?.id ?? '',
+
+        quantity: Number(item.quantity ?? 1),
+
+        unit_price: Number(item.unit_price ?? 0),
+      }))
+    );
+  } else {
     setCustomerId('');
     setPaymentMethod('cash');
     setPaidAmount(0);
     setBankAccountId('');
     setItems([emptyItem()]);
-  }, [open]);
+  }
+}, [open, initialSale]);
 
   const totalAmount = useMemo(
     () =>
@@ -190,8 +256,11 @@ export default function SaleFormDialog({
         },
       }}
     >
-      <DialogTitle sx={{ fontWeight: 600 }}>
+      {/* <DialogTitle sx={{ fontWeight: 600 }}>
         Create Sale
+      </DialogTitle> */}
+      <DialogTitle sx={{ fontWeight: 600 }}>
+        {initialSale ? 'Edit Sale' : 'Create Sale'}
       </DialogTitle>
 
       <DialogContent>
@@ -247,7 +316,25 @@ export default function SaleFormDialog({
                 const selectedProduct = products.find(
                   (p) => p.value === item.product_id
                 );
+                  const originalQuantity =
+                initialSale?.items
+                  ?.filter((originalItem) => {
+                    const originalProductId =
+                      typeof originalItem.product_id === 'string'
+                        ? originalItem.product_id
+                        : originalItem.product_id?.id;
 
+                    return originalProductId === item.product_id;
+                  })
+                  .reduce(
+                    (sum, originalItem) =>
+                      sum + Number(originalItem.quantity ?? 0),
+                    0
+                  ) ?? 0;
+
+              const availableStock =
+                Number(selectedProduct?.stock_quantity ?? 0) +
+                (initialSale ? originalQuantity : 0);
                 const itemTotal =
                   Number(item.quantity || 0) *
                   Number(item.unit_price || 0);
@@ -374,8 +461,8 @@ export default function SaleFormDialog({
                     </Stack>
 
                     {selectedProduct &&
-                      Number(item.quantity) >
-                        selectedProduct.stock_quantity && (
+                      Number(item.quantity) > availableStock && (
+                        // selectedProduct.stock_quantity && (
                         <Typography
                           variant="caption"
                           color="error"
@@ -384,8 +471,8 @@ export default function SaleFormDialog({
                             mt: 1,
                           }}
                         >
-                          Quantity exceeds available stock
-                          ({selectedProduct.stock_quantity}).
+                        Quantity exceeds available stock
+                        ({availableStock}).
                         </Typography>
                       )}
                   </Box>
@@ -575,15 +662,44 @@ export default function SaleFormDialog({
             !customerId ||
             items.every((item) => !item.product_id) ||
             paidAmount > totalAmount ||
+            // items.some((item) => {
+            //   const product = products.find((p) => p.value === item.product_id);
+            //   return Boolean(product) && Number(item.quantity) > Number(product?.stock_quantity ?? 0);
+            // }) 
             items.some((item) => {
-              const product = products.find((p) => p.value === item.product_id);
-              return Boolean(product) && Number(item.quantity) > Number(product?.stock_quantity ?? 0);
-            }) ||
+            const product = products.find(
+              (p) => p.value === item.product_id
+            );
+
+            if (!product) return false;
+
+            const originalQuantity =
+              initialSale?.items
+                ?.filter((originalItem) => {
+                  const originalProductId =
+                    typeof originalItem.product_id === 'string'
+                      ? originalItem.product_id
+                      : originalItem.product_id?.id;
+
+                  return originalProductId === item.product_id;
+                })
+                .reduce(
+                  (sum, originalItem) =>
+                    sum + Number(originalItem.quantity ?? 0),
+                  0
+                ) ?? 0;
+
+            const availableStock =
+              Number(product.stock_quantity ?? 0) +
+              (initialSale ? originalQuantity : 0);
+
+            return Number(item.quantity) > availableStock;
+          })   ||
             ((paymentMethod === 'bank' || paymentMethod === 'mixed') && !bankAccountId)
           }
           sx={{ borderRadius: 2 }}
         >
-          {loading ? 'Creating...' : 'Create Sale'}
+        {loading ? 'Creating...' : 'Create Sale'}
         </Button>
       </DialogActions>
     </Dialog>
