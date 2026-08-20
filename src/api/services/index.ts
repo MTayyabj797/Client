@@ -53,6 +53,7 @@ export interface LedgerEntry {
   payment_method: string;
   ref_type?: string;
   ref_id?: string;
+  bank_account_id?: { id: string; bank_name: string; account_number: string };
 }
 
 export interface Supplier {
@@ -211,16 +212,58 @@ export const customerService = {
   remove: (id: string) => remove(`/customers/${id}`),
   ledger: (id: string, params?: Record<string, unknown>) => list<LedgerEntry>(`/customers/${id}/ledger`, params),
   addLedgerEntry: (id: string, body: unknown) => create<LedgerEntry>(`/customers/${id}/ledger`, body),
+  updateLedgerEntry: (
+  id: string,
+  entryId: string,
+  body: unknown
+) =>
+  update<LedgerEntry>(
+    `/customers/${id}/ledger/${entryId}`,
+    body
+  ),
 };
 
+// export const supplierService = {
+//   list: (params?: Record<string, unknown>) => list<Supplier>('/suppliers', params),
+//   get: (id: string) => get<Supplier>(`/suppliers/${id}`),
+//   create: (body: unknown) => create<Supplier>('/suppliers', body),
+//   update: (id: string, body: unknown) => update<Supplier>(`/suppliers/${id}`, body),
+//   remove: (id: string) => remove(`/suppliers/${id}`),
+//   ledger: (id: string, params?: Record<string, unknown>) => list<LedgerEntry>(`/suppliers/${id}/ledger`, params),
+//   addLedgerEntry: (id: string, body: unknown) => create<LedgerEntry>(`/suppliers/${id}/ledger`, body),
+// };
+
 export const supplierService = {
-  list: (params?: Record<string, unknown>) => list<Supplier>('/suppliers', params),
-  get: (id: string) => get<Supplier>(`/suppliers/${id}`),
-  create: (body: unknown) => create<Supplier>('/suppliers', body),
-  update: (id: string, body: unknown) => update<Supplier>(`/suppliers/${id}`, body),
-  remove: (id: string) => remove(`/suppliers/${id}`),
-  ledger: (id: string, params?: Record<string, unknown>) => list<LedgerEntry>(`/suppliers/${id}/ledger`, params),
-  addLedgerEntry: (id: string, body: unknown) => create<LedgerEntry>(`/suppliers/${id}/ledger`, body),
+  list: (params?: Record<string, unknown>) =>
+    list<Supplier>('/suppliers', params),
+
+  get: (id: string) =>
+    get<Supplier>(`/suppliers/${id}`),
+
+  create: (body: unknown) =>
+    create<Supplier>('/suppliers', body),
+
+  update: (id: string, body: unknown) =>
+    update<Supplier>(`/suppliers/${id}`, body),
+
+  remove: (id: string) =>
+    remove(`/suppliers/${id}`),
+
+  ledger: (id: string, params?: Record<string, unknown>) =>
+    list<LedgerEntry>(`/suppliers/${id}/ledger`, params),
+
+  addLedgerEntry: (id: string, body: unknown) =>
+    create<LedgerEntry>(`/suppliers/${id}/ledger`, body),
+
+  updateLedgerEntry: (
+    id: string,
+    entryId: string,
+    body: unknown
+  ) =>
+    update<LedgerEntry>(
+      `/suppliers/${id}/ledger/${entryId}`,
+      body
+    ),
 };
 
 export const productService = {
@@ -234,10 +277,31 @@ export const productService = {
   createCategory: (body: unknown) => create<Category>('/products/categories', body),
 };
 
+// export const saleService = {
+//   list: (params?: Record<string, unknown>) => list<Sale>('/sales', params),
+//   get: (id: string) => get<Sale>(`/sales/${id}`),
+//   create: (body: unknown) => create<Sale>('/sales', body),
+// };
+
 export const saleService = {
-  list: (params?: Record<string, unknown>) => list<Sale>('/sales', params),
-  get: (id: string) => get<Sale>(`/sales/${id}`),
-  create: (body: unknown) => create<Sale>('/sales', body),
+  list: (params?: Record<string, unknown>) =>
+    list<Sale>('/sales', params),
+
+  get: (id: string) =>
+    get<Sale>(`/sales/${id}`),
+
+  create: (body: unknown) =>
+    create<Sale>('/sales', body),
+
+  update: (id: string, body: unknown) =>
+    update<Sale>(`/sales/${id}`, body),
+
+  // cancel: (id: string) =>
+  // update<Sale>(`/sales/${id}/cancel`, {}),
+
+  cancelSale: (id: string) =>
+  patch<Sale>(`/sales/${id}/cancel`, {}),
+
 };
 
 export const purchaseService = {
@@ -247,23 +311,111 @@ export const purchaseService = {
   delete: (id: string) => remove(`/purchases/${id}`),
 };
 
-export const expenseService = {
-  list: (params?: Record<string, unknown>) => list<Expense>('/expenses', params),
-  create: (body: unknown) => create<Expense>('/expenses', body),
-  categories: () => list<ExpenseCategory>('/expenses/categories'),
-  createCategory: (body: unknown) => create<ExpenseCategory>('/expenses/categories', body),
-  delete: (id: string) => remove(`/expenses/${id}`),
-};
+// export const expenseService = {
+//   list: (params?: Record<string, unknown>) => list<Expense>('/expenses', params),
+//   create: (body: unknown) => create<Expense>('/expenses', body),
+//   categories: () => list<ExpenseCategory>('/expenses/categories'),
+//   createCategory: (body: unknown) => create<ExpenseCategory>('/expenses/categories', body),
+//   delete: (id: string) => remove(`/expenses/${id}`),
+// };
 
+export const expenseService = {
+  list: (params?: Record<string, unknown>) =>
+    list<Expense>('/expenses', params),
+
+  create: (body: unknown) =>
+    create<Expense>('/expenses', body),
+
+  update: (id: string, body: unknown) =>
+    update<Expense>(`/expenses/${id}`, body),
+
+  categories: () =>
+    list<ExpenseCategory>('/expenses/categories'),
+
+  createCategory: (body: unknown) =>
+    create<ExpenseCategory>('/expenses/categories', body),
+
+  delete: (id: string) =>
+    remove(`/expenses/${id}`),
+};
+// export const cashBankService = {
+//   listCashBook: (params?: Record<string, unknown>) => list<CashEntry>('/cash-book', params),
+//   createCashEntry: (body: unknown) => create<CashEntry>('/cash-book', body),
+//   listBankAccounts: () => list<BankAccount>('/bank-accounts'),
+//   createBankAccount: (body: unknown) => create<BankAccount>('/bank-accounts', body),
+//   deleteBankAccount: (id: string) =>remove(`/bank-accounts/${id}`),
+//   updateBankAccountStatus: (id: string, status: 'active' | 'inactive') => patch<BankAccount>(  `/bank-accounts/${id}/status`,  { status }),
+//   transfer: (body: unknown) => create<unknown>('/bank-accounts/transfer', body),
+//   bankLedger: (id: string, params?: Record<string, unknown>) => list<BankTransaction>(`/bank-accounts/${id}/ledger`, params),
+// };
 export const cashBankService = {
-  listCashBook: (params?: Record<string, unknown>) => list<CashEntry>('/cash-book', params),
-  createCashEntry: (body: unknown) => create<CashEntry>('/cash-book', body),
-  listBankAccounts: () => list<BankAccount>('/bank-accounts'),
-  createBankAccount: (body: unknown) => create<BankAccount>('/bank-accounts', body),
-  deleteBankAccount: (id: string) =>remove(`/bank-accounts/${id}`),
-  updateBankAccountStatus: (id: string, status: 'active' | 'inactive') => patch<BankAccount>(  `/bank-accounts/${id}/status`,  { status }),
-  transfer: (body: unknown) => create<unknown>('/bank-accounts/transfer', body),
-  bankLedger: (id: string, params?: Record<string, unknown>) => list<BankTransaction>(`/bank-accounts/${id}/ledger`, params),
+  listCashBook: (params?: Record<string, unknown>) =>
+    list<CashEntry>('/cash-book', params),
+
+  createCashEntry: (body: unknown) =>
+    create<CashEntry>('/cash-book', body),
+
+  // updateCashEntry: (id: string, body: unknown) =>
+  //   update<CashEntry>(`/cash-book/${id}`, body),
+
+  listBankAccounts: () =>
+    list<BankAccount>('/bank-accounts'),
+
+  createBankAccount: (body: unknown) =>
+    create<BankAccount>('/bank-accounts', body),
+
+  // updateBankAccount: (id: string, body: unknown) =>
+  //   update<BankAccount>(`/bank-accounts/${id}`, body),
+
+  deleteBankAccount: (id: string) =>
+    remove(`/bank-accounts/${id}`),
+
+  // updateBankAccountStatus: (
+  //   id: string,
+  //   status: 'active' | 'inactive'
+  // ) =>
+  //   patch<BankAccount>(
+  //     `/bank-accounts/${id}/status`,
+  //     { status }
+  //   ),
+
+  updateCashEntry: (id: string, body: unknown) =>
+  update<CashEntry>(`/cash-book/${id}`, body),
+
+updateBankAccount: (id: string, body: unknown) =>
+  update<BankAccount>(`/bank-accounts/${id}`, body),
+
+updateBankTransaction: (
+  accountId: string,
+  transactionId: string,
+  body: unknown
+) =>
+  update<BankTransaction>(
+    `/bank-accounts/${accountId}/ledger/${transactionId}`,
+    body
+  ),
+
+  transfer: (body: unknown) =>
+    create<unknown>('/bank-accounts/transfer', body),
+
+  bankLedger: (
+    id: string,
+    params?: Record<string, unknown>
+  ) =>
+    list<BankTransaction>(
+      `/bank-accounts/${id}/ledger`,
+      params
+    ),
+
+  // updateBankTransaction: (
+  //   accountId: string,
+  //   transactionId: string,
+  //   body: unknown
+  // ) =>
+  //   update<BankTransaction>(
+  //     `/bank-accounts/${accountId}/ledger/${transactionId}`,
+  //     body
+  //   ),
 };
 
 export const dailyBookService = {
