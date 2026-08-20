@@ -9,9 +9,10 @@ import EmptyState from '@/components/EmptyState';
 import FormDialog from '@/components/FormDialog';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import ErrorState from '@/components/ErrorState';
-import { useSupplier, useSupplierLedger, useAddSupplierLedgerEntry, type LedgerEntry } from '@/hooks/useSuppliers';
+import { useSupplier, useSupplierLedger, useAddSupplierLedgerEntry,   useUpdateSupplierLedgerEntry , type LedgerEntry } from '@/hooks/useSuppliers';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { exportTableToPDF, printDocument } from '@/components/PDFButton';
+import { useBankAccounts } from '@/hooks/useCashBank';
 
 export default function SupplierLedger() {
   const { id } = useParams();
@@ -20,9 +21,15 @@ export default function SupplierLedger() {
   const rowsPerPage = 10;
   const [formOpen, setFormOpen] = useState(false);
 
+  const [editingEntry, setEditingEntry] = useState<LedgerEntry | null>(null);
+
   const supplierQuery = useSupplier(id!);
   const ledgerQuery = useSupplierLedger(id!, { page, limit: rowsPerPage });
   const addEntryMut = useAddSupplierLedgerEntry(id!);
+  const updateEntryMut = useUpdateSupplierLedgerEntry(id!);
+
+  const { data: banksData } = useBankAccounts();
+  const banks = banksData?.data ?? [];
 
   const supplier = supplierQuery.data;
   const entries: LedgerEntry[] = ledgerQuery.data?.data ?? [];
@@ -33,12 +40,97 @@ export default function SupplierLedger() {
   const opening = supplier?.opening_balance ?? 0;
   const current = supplier?.current_balance ?? 0;
 
-  const handleAdd = (vals: Record<string, string | number>) => {
-    addEntryMut.mutate({
-      date: vals.date, description: String(vals.description),
-      debit: Number(vals.debit), credit: Number(vals.credit), payment_method: String(vals.method).toLowerCase(),
-    }, { onSuccess: () => setFormOpen(false) });
-  };
+//   const handleAdd = (vals: Record<string, string | number>) => {
+//     addEntryMut.mutate({
+//       date: vals.date, description: String(vals.description),
+//       debit: Number(vals.debit), credit: Number(vals.credit), payment_method: String(vals.method).toLowerCase(),
+//     }, { onSuccess: () => setFormOpen(false) });
+//   };
+
+//   const handleEdit = (vals: Record<string, string | number>) => {
+//   if (!editingEntry) return;
+
+//   const paymentMethod = String(vals.method).toLowerCase();
+
+//   updateEntryMut.mutate(
+//     {
+//       entryId: editingEntry.id,
+//       body: {
+//         date: vals.date,
+//         description: String(vals.description),
+//         debit: Number(vals.debit),
+//         credit: Number(vals.credit),
+//         payment_method: paymentMethod,
+//         ...(paymentMethod === 'bank' && vals.bank_account_id
+//           ? {
+//               bank_account_id: String(vals.bank_account_id),
+//             }
+//           : {}),
+//       },
+//     },
+//     {
+//       onSuccess: () => {
+//         setEditingEntry(null);
+//         setFormOpen(false);
+//       },
+//     }
+//   );
+// };
+
+const handleAdd = (vals: Record<string, string | number>) => {
+  const paymentMethod = String(vals.method).toLowerCase();
+
+  addEntryMut.mutate(
+    {
+      date: vals.date,
+      description: String(vals.description),
+      debit: Number(vals.debit),
+      credit: Number(vals.credit),
+      payment_method: paymentMethod,
+      ...(paymentMethod === 'bank'
+        ? {
+            bank_account_id: String(vals.bank_account_id),
+          }
+        : {}),
+    },
+    {
+      onSuccess: () => {
+        setFormOpen(false);
+        setEditingEntry(null);
+      },
+    }
+  );
+};
+
+const handleEdit = (vals: Record<string, string | number>) => {
+  if (!editingEntry) return;
+
+  const paymentMethod = String(vals.method).toLowerCase();
+
+  updateEntryMut.mutate(
+    {
+      entryId: editingEntry.id,
+      body: {
+        date: vals.date,
+        description: String(vals.description),
+        debit: Number(vals.debit),
+        credit: Number(vals.credit),
+        payment_method: paymentMethod,
+        ...(paymentMethod === 'bank'
+          ? {
+              bank_account_id: String(vals.bank_account_id),
+            }
+          : {}),
+      },
+    },
+    {
+      onSuccess: () => {
+        setEditingEntry(null);
+        setFormOpen(false);
+      },
+    }
+  );
+};
 
   const handleExport = () => {
     exportTableToPDF(`Supplier Ledger - ${supplier?.name ?? id}`,
@@ -59,6 +151,25 @@ export default function SupplierLedger() {
     { id: 'credit', label: 'Credit (Purchase)', align: 'right' as const, render: (r: typeof entries[number]) => (r.credit ? <span style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(r.credit)}</span> : '—') },
     { id: 'balance', label: 'Balance', align: 'right' as const, render: (r: typeof entries[number]) => <strong>{formatCurrency(r.balance)}</strong> },
     { id: 'payment_method', label: 'Method', render: (r: typeof entries[number]) => <span style={{ textTransform: 'capitalize' }}>{r.payment_method}</span> },
+    {
+  id: 'actions',
+  label: 'Actions',
+  align: 'right' as const,
+  render: (r: typeof entries[number]) =>
+    r.ref_type === 'SUPPLIER_MANUAL' ? (
+      <Button
+        size="small"
+        variant="outlined"
+        onClick={() => {
+          setEditingEntry(r);
+          setFormOpen(true);
+        }}
+        sx={{ borderRadius: 1.5 }}
+      >
+        Edit
+      </Button>
+    ) : null,
+},
   ];
 
   const summaryCards = [
@@ -91,13 +202,126 @@ export default function SupplierLedger() {
         </>
       )}
 
-      <FormDialog open={formOpen} title="Add Transaction" fields={[
-        { name: 'date', label: 'Date', type: 'date', required: true, defaultValue: new Date().toISOString().slice(0, 10) },
-        { name: 'description', label: 'Description', required: true },
-        { name: 'debit', label: 'Debit (Payment)', type: 'number', defaultValue: 0 },
-        { name: 'credit', label: 'Credit (Purchase)', type: 'number', defaultValue: 0 },
-        { name: 'method', label: 'Payment Method', type: 'select', options: ['cash', 'bank', 'adjustment'], defaultValue: 'cash' },
-      ]} onClose={() => setFormOpen(false)} onSubmit={handleAdd} />
+      {/* <FormDialog open={formOpen}   title={editingEntry ? 'Edit Transaction' : 'Add Transaction'}
+      //  fields={[
+      //   { name: 'date', label: 'Date', type: 'date', required: true, defaultValue: new Date().toISOString().slice(0, 10) },
+      //   { name: 'description', label: 'Description', required: true },
+      //   { name: 'debit', label: 'Debit (Payment)', type: 'number', defaultValue: 0 },
+      //   { name: 'credit', label: 'Credit (Purchase)', type: 'number', defaultValue: 0 },
+      //   { name: 'method', label: 'Payment Method', type: 'select', options: ['cash', 'bank', 'adjustment'], defaultValue: 'cash' },
+
+      // ]}
+            fields={[
+        {
+          name: 'date',
+          label: 'Date',
+          type: 'date',
+          required: true,
+          defaultValue: editingEntry
+            ? new Date(editingEntry.date).toISOString().slice(0, 10)
+            : new Date().toISOString().slice(0, 10),
+        },
+        {
+          name: 'description',
+          label: 'Description',
+          required: true,
+          defaultValue: editingEntry?.description ?? '',
+        },
+        {
+          name: 'debit',
+          label: 'Debit (Payment)',
+          type: 'number',
+          defaultValue: editingEntry?.debit ?? 0,
+        },
+        {
+          name: 'credit',
+          label: 'Credit (Purchase)',
+          type: 'number',
+          defaultValue: editingEntry?.credit ?? 0,
+        },
+        {
+          name: 'method',
+          label: 'Payment Method',
+          type: 'select',
+          options: [
+            { value: 'cash', label: 'Cash' },
+            { value: 'bank', label: 'Bank' },
+            { value: 'adjustment', label: 'Adjustment' },
+          ],
+          defaultValue: editingEntry?.payment_method ?? 'cash',
+        },
+      ]}
+       onClose={() => setFormOpen(false)} onSubmit={handleAdd} /> */}
+
+           <FormDialog
+               open={formOpen}
+               title={editingEntry ? 'Edit Transaction' : 'Add Transaction'}
+               fields={[
+                 {
+                   name: 'date',
+                   label: 'Date',
+                   type: 'date',
+                   required: true,
+                   defaultValue: editingEntry
+                     ? new Date(editingEntry.date).toISOString().slice(0, 10)
+                     : new Date().toISOString().slice(0, 10),
+                 },
+                 {
+                   name: 'description',
+                   label: 'Description',
+                   required: true,
+                   defaultValue: editingEntry?.description ?? '',
+                 },
+                 {
+                   name: 'debit',
+                   label: 'Debit (Sale)',
+                   type: 'number',
+                   defaultValue: editingEntry?.debit ?? 0,
+                 },
+                 {
+                   name: 'credit',
+                   label: 'Credit (Payment)',
+                   type: 'number',
+                   defaultValue: editingEntry?.credit ?? 0,
+                 },
+                 {
+                   name: 'method',
+                   label: 'Payment Method',
+                   type: 'select',
+                   options: [
+                     { value: 'cash', label: 'Cash' },
+                     { value: 'bank', label: 'Bank' },
+                     { value: 'adjustment', label: 'Adjustment' },
+                   ],
+                   defaultValue: editingEntry?.payment_method ?? 'cash',
+                 },
+                 {
+                   name: 'bank_account_id',
+                   label: 'Bank Account',
+                   type: 'select',
+                   options: banks.map((bank) => ({
+                     value: bank.id,
+                     label: `${bank.bank_name} — ${bank.account_number}`,
+                   })),
+                  //  defaultValue: editingEntry?.bank_account_id ?? '',
+                  //  visibleWhen: {
+                  //    field: 'method',
+                  //    equals: ['bank'],
+                  //  },
+
+                  defaultValue: typeof editingEntry?.bank_account_id === 'object'
+                  ? editingEntry.bank_account_id?.id ?? ''
+                  : editingEntry?.bank_account_id ?? '',
+                   },
+               ]}
+               
+               onClose={() => {
+                 setFormOpen(false);
+                 setEditingEntry(null);
+               }}
+               onSubmit={editingEntry ? handleEdit : handleAdd}
+             />
+       
     </Box>
   );
 }
