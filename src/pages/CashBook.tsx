@@ -10,7 +10,13 @@ import EmptyState from '@/components/EmptyState';
 import FormDialog from '@/components/FormDialog';
 import LoadingSkeleton from '@/components/LoadingSkeleton';
 import ErrorState from '@/components/ErrorState';
-import { useCashBook, useCreateCashEntry, type CashEntry } from '@/hooks/useCashBank';
+// import { useCashBook, useCreateCashEntry, type CashEntry } from '@/hooks/useCashBank';
+import {
+  useCashBook,
+  useCreateCashEntry,
+  useUpdateCashEntry,
+  type CashEntry,
+} from '@/hooks/useCashBank';
 import { formatCurrency, formatDate } from '@/utils/format';
 
 export default function CashBook() {
@@ -18,7 +24,11 @@ export default function CashBook() {
   const rowsPerPage = 10;
   const [formOpen, setFormOpen] = useState(false);  
   const [search, setSearch] = useState('');
+  // const createMut = useCreateCashEntry();
   const createMut = useCreateCashEntry();
+  const updateMut = useUpdateCashEntry();
+
+  const [editingEntry, setEditingEntry] = useState<CashEntry | null>(null);
 
   // const { data: result, isLoading, isError, refetch } = useCashBook({ page, limit: rowsPerPage });
   const { data: result, isLoading, isError, refetch } =
@@ -54,13 +64,58 @@ export default function CashBook() {
     });
   };
 
+  // const columns = [
+  //   { id: 'date', label: 'Date', render: (r: typeof entries[number]) => formatDate(r.date) },
+  //   { id: 'description', label: 'Description' },
+  //   { id: 'cash_in', label: 'Cash In', align: 'right' as const, render: (r: typeof entries[number]) => (r.cash_in ? <span style={{ color: '#16a34a', fontWeight: 600 }}>{formatCurrency(r.cash_in)}</span> : '—') },
+  //   { id: 'cash_out', label: 'Cash Out', align: 'right' as const, render: (r: typeof entries[number]) => (r.cash_out ? <span style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(r.cash_out)}</span> : '—') },
+  //   { id: 'running_balance', label: 'Balance', align: 'right' as const, render: (r: typeof entries[number]) => <strong>{formatCurrency(r.running_balance)}</strong> },
+  // ];
   const columns = [
-    { id: 'date', label: 'Date', render: (r: typeof entries[number]) => formatDate(r.date) },
-    { id: 'description', label: 'Description' },
-    { id: 'cash_in', label: 'Cash In', align: 'right' as const, render: (r: typeof entries[number]) => (r.cash_in ? <span style={{ color: '#16a34a', fontWeight: 600 }}>{formatCurrency(r.cash_in)}</span> : '—') },
-    { id: 'cash_out', label: 'Cash Out', align: 'right' as const, render: (r: typeof entries[number]) => (r.cash_out ? <span style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(r.cash_out)}</span> : '—') },
-    { id: 'running_balance', label: 'Balance', align: 'right' as const, render: (r: typeof entries[number]) => <strong>{formatCurrency(r.running_balance)}</strong> },
-  ];
+  {
+    id: 'date',
+    label: 'Date',
+    render: (r: typeof entries[number]) => formatDate(r.date),
+  },
+  {
+    id: 'description',
+    label: 'Description',
+  },
+  {
+    id: 'cash_in',
+    label: 'Cash In',
+    align: 'right' as const,
+    render: (r: typeof entries[number]) =>
+      r.cash_in ? (
+        <span style={{ color: '#16a34a', fontWeight: 600 }}>
+          {formatCurrency(r.cash_in)}
+        </span>
+      ) : (
+        '—'
+      ),
+  },
+  {
+    id: 'cash_out',
+    label: 'Cash Out',
+    align: 'right' as const,
+    render: (r: typeof entries[number]) =>
+      r.cash_out ? (
+        <span style={{ color: '#dc2626', fontWeight: 600 }}>
+          {formatCurrency(r.cash_out)}
+        </span>
+      ) : (
+        '—'
+      ),
+  },
+  {
+    id: 'running_balance',
+    label: 'Balance',
+    align: 'right' as const,
+    render: (r: typeof entries[number]) => (
+      <strong>{formatCurrency(r.running_balance)}</strong>
+    ),
+  },
+];
 
   const summaryCards = [
     { title: 'Opening Cash', value: formatCurrency(opening), icon: Wallet, color: '#2563eb' },
@@ -93,7 +148,19 @@ export default function CashBook() {
         <EmptyState title="No cash entries" message="Add a cash entry to start your cash book." actionLabel="Add Entry" onAction={() => setFormOpen(true)} />
       ) : (
         <>
-          <DataTable columns={columns} rows={entries} rowKey={(r) => r.id} />
+          {/* <DataTable columns={columns} rows={entries} rowKey={(r) => r.id} /> */}
+          <DataTable
+            columns={columns}
+            rows={entries}
+            rowKey={(r) => r.id}
+            onEdit={(entry) => {
+              if (entry.ref_type !== 'CASH_MANUAL') {
+                return;
+              }
+
+              setEditingEntry(entry);
+            }}
+/>
           <TablePagination count={meta?.total ?? entries.length} page={page - 1} rowsPerPage={rowsPerPage} onPageChange={(p) => setPage(p + 1)} />
         </>
       )}
@@ -104,6 +171,58 @@ export default function CashBook() {
         { name: 'cashIn', label: 'Cash In', type: 'number', defaultValue: 0 },
         { name: 'cashOut', label: 'Cash Out', type: 'number', defaultValue: 0 },
       ]} onClose={() => setFormOpen(false)} onSubmit={handleAdd} />
+      <FormDialog
+        open={!!editingEntry}
+        title="Edit Cash Entry"
+        fields={[
+          {
+            name: 'date',
+            label: 'Date',
+            type: 'date',
+            required: true,
+            defaultValue: editingEntry
+              ? new Date(editingEntry.date).toISOString().slice(0, 10)
+              : '',
+          },
+          {
+            name: 'description',
+            label: 'Description',
+            required: true,
+            defaultValue: editingEntry?.description ?? '',
+          },
+          {
+            name: 'cashIn',
+            label: 'Cash In',
+            type: 'number',
+            defaultValue: editingEntry?.cash_in ?? 0,
+          },
+          {
+            name: 'cashOut',
+            label: 'Cash Out',
+            type: 'number',
+            defaultValue: editingEntry?.cash_out ?? 0,
+          },
+        ]}
+        onClose={() => setEditingEntry(null)}
+        onSubmit={(vals) => {
+          if (!editingEntry) return;
+
+          updateMut.mutate(
+            {
+              id: editingEntry.id,
+              body: {
+                date: vals.date,
+                description: String(vals.description),
+                cash_in: Number(vals.cashIn),
+                cash_out: Number(vals.cashOut),
+              },
+            },
+            {
+              onSuccess: () => setEditingEntry(null),
+            }
+          );
+        }}
+      />
     </Box>
   );
 }
