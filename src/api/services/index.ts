@@ -370,14 +370,14 @@ export const cashBankService = {
   deleteBankAccount: (id: string) =>
     remove(`/bank-accounts/${id}`),
 
-  // updateBankAccountStatus: (
-  //   id: string,
-  //   status: 'active' | 'inactive'
-  // ) =>
-  //   patch<BankAccount>(
-  //     `/bank-accounts/${id}/status`,
-  //     { status }
-  //   ),
+  updateBankAccountStatus: (
+    id: string,
+    status: 'active' | 'inactive'
+  ) =>
+    patch<BankAccount>(
+      `/bank-accounts/${id}/status`,
+      { status }
+    ),
 
   updateCashEntry: (id: string, body: unknown) =>
   update<CashEntry>(`/cash-book/${id}`, body),
