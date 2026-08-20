@@ -53,5 +53,35 @@ export const useAddSupplierLedgerEntry = (id: string) => {
     onError: (e) => toast.error(getErrorMessage(e, 'Failed to add ledger entry')),
   });
 };
+export const useUpdateSupplierLedgerEntry = (supplierId: string) => {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      entryId,
+      body,
+    }: {
+      entryId: string;
+      body: unknown;
+    }) => supplierService.updateLedgerEntry(supplierId, entryId, body),
+
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: [KEY, supplierId, 'ledger'],
+      });
+
+      qc.invalidateQueries({
+        queryKey: [KEY, supplierId],
+      });
+
+      toast.success('Ledger entry updated successfully');
+    },
+
+    onError: (e) =>
+      toast.error(
+        getErrorMessage(e, 'Failed to update ledger entry')
+      ),
+  });
+};
 
 export type { Supplier, LedgerEntry };
