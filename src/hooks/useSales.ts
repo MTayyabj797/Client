@@ -51,6 +51,78 @@ export const useCreatePurchase = () => {
   });
 };
 
+// export const useUpdateSale = () => {
+//   const qc = useQueryClient();
+
+//   return useMutation({
+//     mutationFn: ({
+//       id,
+//       body,
+//     }: {
+//       id: string;
+//       body: unknown;
+//     }) => saleService.update(id, body),
+
+//     onSuccess: (sale) => {
+//       qc.invalidateQueries({ queryKey: ['sales'] });
+//       qc.invalidateQueries({ queryKey: ['products'] });
+//       qc.invalidateQueries({ queryKey: ['customers'] });
+//       qc.invalidateQueries({ queryKey: ['cash-book'] });
+//       qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+//       qc.invalidateQueries({ queryKey: ['daily-book'] });
+//       qc.invalidateQueries({ queryKey: ['dashboard'] });
+
+//       if (sale?.id) {
+//         qc.setQueryData(['sales', 'detail', sale.id], sale);
+//       }
+
+//       toast.success('Sale updated successfully');
+//     },
+
+//     onError: (error) =>
+//       toast.error(
+//         getErrorMessage(error, 'Failed to update sale')
+//       ),
+//   });
+// };
+
+export const useUpdateSale = () => {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: unknown;
+    }) => saleService.update(id, body),
+
+    onSuccess: (sale) => {
+      qc.invalidateQueries({ queryKey: ['sales'] });
+      qc.invalidateQueries({ queryKey: ['products'] });
+      qc.invalidateQueries({ queryKey: ['customers'] });
+      qc.invalidateQueries({ queryKey: ['cash-book'] });
+      qc.invalidateQueries({ queryKey: ['bank-accounts'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+
+      if (sale?.id) {
+        qc.setQueryData(
+          ['sales', 'detail', sale.id],
+          sale
+        );
+      }
+
+      toast.success('Sale updated successfully');
+    },
+
+    onError: (error) =>
+      toast.error(
+        getErrorMessage(error, 'Failed to update sale')
+      ),
+  });
+};
+
 export const useDeletePurchase = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -59,5 +131,25 @@ export const useDeletePurchase = () => {
     onError: (e) => toast.error(getErrorMessage(e, 'Failed to delete purchase')),
   });
 };
+export const useCancelSale = () => {
+  const qc = useQueryClient();
 
+  return useMutation({
+    mutationFn: (id: string) =>
+      saleService.cancelSale(id),
+
+    onSuccess: () => {
+      qc.invalidateQueries({
+        queryKey: ['sales'],
+      });
+
+      toast.success('Sale cancelled successfully');
+    },
+
+    onError: (e) =>
+      toast.error(
+        getErrorMessage(e, 'Failed to cancel sale')
+      ),
+  });
+};
 export type { Sale, Purchase };
