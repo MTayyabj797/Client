@@ -136,6 +136,7 @@ import {
   useExpenses,
   useExpenseCategories,
   useCreateExpense,
+  useUpdateExpense,
   useCreateExpenseCategory,
   useDeleteExpense,
   type Expense,
@@ -151,7 +152,7 @@ export default function Expenses() {
   const [formOpen, setFormOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [catFormOpen, setCatFormOpen] = useState(false);
-
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   // Row selected for deletion
   const [deleteRow, setDeleteRow] = useState<{
     id: string;
@@ -175,6 +176,7 @@ export default function Expenses() {
   const { data: banksData } = useBankAccounts();
 
   const createMut = useCreateExpense();
+  const updateMut = useUpdateExpense();
   const createCatMut = useCreateExpenseCategory();
   const deleteMut = useDeleteExpense();
 
@@ -183,21 +185,57 @@ export default function Expenses() {
   const categories = categoriesData?.data ?? [];
   const banks = banksData?.data ?? [];
 
-  const handleAdd = (vals: Record<string, string | number>) => {
-    createMut.mutate(
+  // const handleAdd = (vals: Record<string, string | number>) => {
+  //   createMut.mutate(
+  //     {
+  //       category_id: String(vals.category_id),
+  //       description: String(vals.description),
+  //       amount: Number(vals.amount),
+  //       payment_method: String(vals.payment_method).toLowerCase(),
+  //       bank_account_id: vals.bank_account_id || undefined,
+  //       date: vals.date,
+  //     },
+  //     {
+  //       onSuccess: () => setFormOpen(false),
+  //     }
+  //   );
+  // };
+  const handleSubmit = (vals: Record<string, string | number>) => {
+  const body = {
+    category_id: String(vals.category_id),
+    description: String(vals.description),
+    amount: Number(vals.amount),
+    payment_method: String(vals.payment_method).toLowerCase(),
+    bank_account_id: vals.bank_account_id || undefined,
+    date: vals.date,
+  };
+
+  if (editingExpense) {
+    updateMut.mutate(
       {
-        category_id: String(vals.category_id),
-        description: String(vals.description),
-        amount: Number(vals.amount),
-        payment_method: String(vals.payment_method).toLowerCase(),
-        bank_account_id: vals.bank_account_id || undefined,
-        date: vals.date,
+        id: editingExpense.id,
+        body,
       },
       {
-        onSuccess: () => setFormOpen(false),
+        onSuccess: () => {
+          setFormOpen(false);
+          setEditingExpense(null);
+        },
       }
     );
-  };
+  } else {
+    createMut.mutate(body, {
+      onSuccess: () => {
+        setFormOpen(false);
+      },
+    });
+  }
+};
+
+const handleEdit = (expense: Expense) => {
+  setEditingExpense(expense);
+  setFormOpen(true);
+};
 
   const handleDelete = () => {
     if (!deleteRow) return;
@@ -323,10 +361,12 @@ export default function Expenses() {
         />
       ) : (
         <>
+          {
           <DataTable
             columns={columns}
             rows={expenses}
             rowKey={(r) => r.id}
+            onEdit={handleEdit}
             onDelete={(expense) => {
               setDeleteRow({
                 id: expense.id,
@@ -335,6 +375,8 @@ export default function Expenses() {
               });
             }}
           />
+          
+          }
 
           <TablePagination
             count={meta?.total ?? expenses.length}
@@ -345,7 +387,7 @@ export default function Expenses() {
         </>
       )}
 
-      <FormDialog
+      {/* <FormDialog
         open={formOpen}
         title="Add Expense"
         fields={[
@@ -400,6 +442,72 @@ export default function Expenses() {
         ]}
         onClose={() => setFormOpen(false)}
         onSubmit={handleAdd}
+      /> */}
+
+      <FormDialog
+        open={formOpen}
+        title={editingExpense ? 'Edit Expense' : 'Add Expense'}
+        fields={[
+          {
+            name: 'date',
+            label: 'Date',
+            type: 'date',
+            required: true,
+            defaultValue: editingExpense
+              ? editingExpense.date.slice(0, 10)
+              : new Date().toISOString().slice(0, 10),
+          },
+          {
+            name: 'category_id',
+            label: 'Category',
+            type: 'select',
+            options: categories.map((c) => ({
+              value: c.id,
+              label: c.name,
+            })),
+            required: true,
+            defaultValue: editingExpense?.category_id?.id ?? '',
+          },
+          {
+            name: 'description',
+            label: 'Description',
+            required: true,
+            defaultValue: editingExpense?.description ?? '',
+          },
+          {
+            name: 'amount',
+            label: 'Amount',
+            type: 'number',
+            required: true,
+            defaultValue: editingExpense?.amount ?? 0,
+          },
+          {
+            name: 'payment_method',
+            label: 'Payment Method',
+            type: 'select',
+            options: ['cash', 'bank'],
+            defaultValue: editingExpense?.payment_method ?? 'cash',
+          },
+          {
+            name: 'bank_account_id',
+            label: 'Bank Account',
+            type: 'select',
+            options: banks.map((b) => ({
+              value: b.id,
+              label: `${b.bank_name} — ${b.account_number}`,
+            })),
+            defaultValue: editingExpense?.bank_account_id?.id ?? '',
+            visibleWhen: {
+              field: 'payment_method',
+              equals: ['bank'],
+            },
+          },
+        ]}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingExpense(null);
+        }}
+        onSubmit={handleSubmit}
       />
 
       <FormDialog
